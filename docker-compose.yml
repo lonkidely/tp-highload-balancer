@@ -1,0 +1,58 @@
+version: "3.7"
+
+services:
+  app:
+    container_name: "app"
+    build:
+      context: .
+      dockerfile: ./infra/builder.Dockerfile
+    networks:
+      - nginx-net
+    command: sh -c "./main.bin"
+
+  prometheus-b:
+    container_name: "prometheus-b"
+    image: prom/prometheus:latest
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    networks:
+      - nginx-net
+    environment:
+      TZ: "Europe/Moscow"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana-b:
+    container_name: "grafana-b"
+    image: grafana/grafana:latest
+    volumes:
+      - ./monitoring/grafana/data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - nginx-net
+    environment:
+      TZ: "Europe/Moscow"
+      GF_SECURITY_ADMIN_USER: '${GF_SECURITY_ADMIN_USER}'
+      GF_SECURITY_ADMIN_PASSWORD: '${GF_SECURITY_ADMIN_PASSWORD}'
+      GF_INSTALL_PLUGINS: 'grafana-clock-panel,grafana-simple-json-datasource,vonage-status-panel'
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus-b
+    user: "104:107"
+
+  nginx:
+    container_name: nginx
+    image: nginx
+    volumes:
+      - ./config-dev/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - nginx-net
+    ports:
+      - "8800:8800"
+
+networks:
+  nginx-net:
+    driver: bridge
